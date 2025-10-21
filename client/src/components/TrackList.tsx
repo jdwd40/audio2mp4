@@ -1,4 +1,4 @@
-import { Track } from '../types/index';
+import type { Track } from '../types/index';
 
 interface TrackListProps {
   tracks: Track[];

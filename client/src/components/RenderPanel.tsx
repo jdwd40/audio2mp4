@@ -1,4 +1,4 @@
-import { Track, Preset } from '../types/index';
+import type { Track, Preset } from '../types/index';
 
 interface RenderPanelProps {
   tracks: Track[];

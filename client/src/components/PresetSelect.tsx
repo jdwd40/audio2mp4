@@ -1,4 +1,5 @@
-import { PRESETS, Preset } from '../types/index';
+import { PRESETS } from '../types/index';
+import type { Preset } from '../types/index';
 
 interface PresetSelectProps {
   selectedPreset: Preset;
