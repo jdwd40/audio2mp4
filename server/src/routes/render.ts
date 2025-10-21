@@ -7,6 +7,7 @@ import { upload } from '../middleware/upload.js';
 import { jobStore } from '../jobStore.js';
 import { RenderMeta, JobData } from '../types.js';
 import { config } from '../config.js';
+import { jobEventEmitter } from '../eventEmitter.js';
 
 export const renderRouter = Router();
 
@@ -186,6 +187,49 @@ renderRouter.post('/render', upload.any(), async (req: Request, res: Response) =
       error: 'Internal server error while processing upload',
     });
   }
+});
+
+/**
+ * GET /api/render/:jobId/log
+ * Server-Sent Events endpoint for job progress
+ */
+renderRouter.get('/render/:jobId/log', (req: Request, res: Response) => {
+  const { jobId } = req.params;
+
+  // Check if job exists
+  const job = jobStore.get(jobId);
+  if (!job) {
+    return res.status(404).json({ error: `Job ${jobId} not found` });
+  }
+
+  // Register SSE connection
+  jobEventEmitter.registerConnection(jobId, res);
+
+  console.log(`SSE connection established for job ${jobId}`);
+
+  // Send a welcome log message
+  jobEventEmitter.emitLog(jobId, `Connected to job ${jobId}`);
+
+  // For testing purposes, send some fake progress updates
+  // This demonstrates the SSE functionality until T5 implements real FFmpeg processing
+  setTimeout(() => {
+    jobEventEmitter.emitLog(jobId, 'Job processing will begin...');
+  }, 1000);
+
+  setTimeout(() => {
+    jobEventEmitter.emitProgress(jobId, {
+      step: 'segment',
+      index: 0,
+      total: job.meta.tracks.length,
+    });
+  }, 2000);
+
+  setTimeout(() => {
+    jobEventEmitter.emitLog(jobId, `Simulating processing of ${job.meta.tracks.length} tracks`);
+  }, 3000);
+
+  // Note: In T5, the actual render process will emit real events
+  // For now, this heartbeat demonstrates the SSE connection works
 });
 
 /**

@@ -1,9 +1,4 @@
-Nova here, active. Below is a **Cursor task list** you can drop into a fresh repo. Put it at `docs/cursor_tasks.md` (or just paste into a new Cursor chat as the initial instruction). I also note where each file should live.
 
-# Cursor Task List — Audio+Covers → MP4 Web App
-
-> Place this file at: `docs/cursor_tasks.md`
-> Repo layout to start with:
 
 ```
 audio2mp4-web/
@@ -194,11 +189,5 @@ audio2mp4-web/
 * If a second render is triggered while one is running, server returns 429.
 
 ---
-
-### Where to put this in your app
-
-* Save this file as `docs/cursor_tasks.md`.
-* In Cursor, open the repo folder, create a new chat, paste **this entire task list** as the first message.
-* Then run tasks T0 → T10 step by step, asking Cursor to generate or modify the specific files in each task.
 
 
