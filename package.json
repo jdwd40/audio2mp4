@@ -1,0 +1,29 @@
+{
+  "name": "audio2mp4-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Audio + Covers to MP4 Web Application",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev:client": "npm run dev -w client",
+    "dev:server": "npm run dev -w server",
+    "build": "npm run build -w client && npm run build -w server",
+    "clean": "rm -rf client/dist server/dist node_modules client/node_modules server/node_modules"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "keywords": [
+    "audio",
+    "video",
+    "ffmpeg",
+    "converter"
+  ],
+  "author": "",
+  "license": "MIT"
+}
+
