@@ -2,7 +2,7 @@ import { useState } from 'react';
 import TrackList from './components/TrackList';
 import PresetSelect from './components/PresetSelect';
 import RenderPanel from './components/RenderPanel';
-import { Track, Preset, PRESETS } from './types';
+import { Track, Preset, PRESETS } from './types/index';
 import './App.css';
 
 function App() {
