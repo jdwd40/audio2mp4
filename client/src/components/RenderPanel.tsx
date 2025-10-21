@@ -1,3 +1,4 @@
+import { useRef, useEffect } from 'react';
 import type { Track, Preset } from '../types/index';
 
 interface RenderPanelProps {
@@ -5,6 +6,10 @@ interface RenderPanelProps {
   preset: Preset;
   onRender: () => void;
   isRendering: boolean;
+  logs?: string[];
+  progress?: { step: string; index?: number; total?: number } | null;
+  downloadUrl?: string | null;
+  error?: string | null;
 }
 
 export default function RenderPanel({
@@ -12,7 +17,19 @@ export default function RenderPanel({
   preset,
   onRender,
   isRendering,
+  logs = [],
+  progress,
+  downloadUrl,
+  error,
 }: RenderPanelProps) {
+  const logContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Auto-scroll logs to bottom
+  useEffect(() => {
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
+  }, [logs]);
   const isValid = () => {
     if (tracks.length < 2 || tracks.length > 10) return false;
     return tracks.every((track) => track.audioFile && track.imageFile);
@@ -35,6 +52,17 @@ export default function RenderPanel({
   };
 
   const validationMessage = getValidationMessage();
+  
+  const getProgressMessage = () => {
+    if (!progress) return null;
+    if (progress.step === 'segment' && progress.index !== undefined && progress.total) {
+      return `Processing segment ${progress.index + 1} of ${progress.total}...`;
+    }
+    if (progress.step === 'concat') {
+      return 'Concatenating segments...';
+    }
+    return null;
+  };
 
   return (
     <div className="render-panel">
@@ -62,6 +90,48 @@ export default function RenderPanel({
       >
         {isRendering ? 'Rendering...' : 'Render Video'}
       </button>
+      
+      {/* Progress indicator */}
+      {progress && (
+        <div className="progress-status" role="status" aria-live="polite">
+          <p className="progress-message">{getProgressMessage()}</p>
+        </div>
+      )}
+      
+      {/* Error message */}
+      {error && (
+        <div className="error-message" role="alert">
+          <strong>Error:</strong> {error}
+        </div>
+      )}
+      
+      {/* Log output */}
+      {logs.length > 0 && (
+        <div className="log-output">
+          <h3>Render Log</h3>
+          <div className="log-container" ref={logContainerRef}>
+            {logs.map((log, index) => (
+              <div key={index} className="log-line">
+                {log}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {/* Download button */}
+      {downloadUrl && (
+        <div className="download-section">
+          <p className="success-message">✅ Render complete!</p>
+          <a
+            href={downloadUrl}
+            download="output.mp4"
+            className="btn btn-success btn-large"
+          >
+            Download Video
+          </a>
+        </div>
+      )}
     </div>
   );
 }

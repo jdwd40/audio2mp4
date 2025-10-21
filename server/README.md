@@ -2,6 +2,14 @@
 
 Express TypeScript server for Audio2MP4 Web.
 
+## Prerequisites
+
+- **Node.js** 18+ 
+- **FFmpeg** - Required for video rendering
+  - Ubuntu/Debian: `sudo apt-get install ffmpeg`
+  - macOS: `brew install ffmpeg`
+  - Windows: Download from [ffmpeg.org](https://ffmpeg.org/download.html)
+
 ## Environment Variables
 
 Create a `.env` file in this directory with:
@@ -67,5 +75,47 @@ curl -X POST http://localhost:8080/api/render \
   -F 'audio_1=@track2.mp3' \
   -F 'image_0=@cover1.jpg' \
   -F 'image_1=@cover2.jpg'
+```
+
+#### Monitor Job Progress (SSE)
+- `GET /api/render/:jobId/log`
+- Content-Type: `text/event-stream`
+- Returns: Server-Sent Events stream
+
+**Event Types:**
+- `log` - Text log messages from FFmpeg
+- `progress` - JSON: `{ step: "segment"|"concat", index?: number, total?: number }`
+- `done` - JSON: `{ downloadUrl: string }`
+- `error` - Error message
+
+**Example:**
+```bash
+curl -N http://localhost:8080/api/render/{jobId}/log
+```
+
+#### Download Rendered Video
+- `GET /api/render/:jobId/download`
+- Returns: MP4 video file
+- Content-Disposition: attachment
+
+**Example:**
+```bash
+curl -O http://localhost:8080/api/render/{jobId}/download
+```
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server with hot reload
+npm run dev
+
+# Build TypeScript
+npm run build
+
+# Run tests
+./test-upload.sh
 ```
 

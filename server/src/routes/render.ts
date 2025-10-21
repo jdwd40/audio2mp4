@@ -8,6 +8,7 @@ import { jobStore } from '../jobStore.js';
 import { RenderMeta, JobData } from '../types.js';
 import { config } from '../config.js';
 import { jobEventEmitter } from '../eventEmitter.js';
+import { startRenderJob } from '../renderService.js';
 
 export const renderRouter = Router();
 
@@ -158,12 +159,16 @@ renderRouter.post('/render', upload.any(), async (req: Request, res: Response) =
 
     jobStore.set(jobId, jobData);
 
-    // TODO: Start async render job (will be implemented in T5)
-    // For now, just mark as pending
+    // Log job creation
     console.log(`Job ${jobId} created in ${tempDir}`);
     console.log(`  Tracks: ${meta.tracks.length}`);
     console.log(`  Dimensions: ${meta.width}x${meta.height}@${meta.fps}fps`);
     console.log(`  Total size: ${totalSizeMB.toFixed(2)}MB`);
+
+    // Start async render job (don't await - returns immediately with 202)
+    startRenderJob(jobId).catch(error => {
+      console.error(`Unhandled error in render job ${jobId}:`, error);
+    });
 
     // Return 202 Accepted with jobId
     return res.status(202).json({ jobId });
@@ -208,28 +213,51 @@ renderRouter.get('/render/:jobId/log', (req: Request, res: Response) => {
   console.log(`SSE connection established for job ${jobId}`);
 
   // Send a welcome log message
-  jobEventEmitter.emitLog(jobId, `Connected to job ${jobId}`);
+  jobEventEmitter.emitLog(jobId, `Connected to job ${jobId} (status: ${job.status})`);
+  
+  // If job is already done or errored, send the appropriate event
+  if (job.status === 'done') {
+    jobEventEmitter.emitDone(jobId, `/api/render/${jobId}/download`);
+  } else if (job.status === 'error') {
+    jobEventEmitter.emitError(jobId, job.error || 'Unknown error');
+  }
+  
+  // The actual render process (from renderService.ts) will emit real events
+});
 
-  // For testing purposes, send some fake progress updates
-  // This demonstrates the SSE functionality until T5 implements real FFmpeg processing
-  setTimeout(() => {
-    jobEventEmitter.emitLog(jobId, 'Job processing will begin...');
-  }, 1000);
+/**
+ * GET /api/render/:jobId/download
+ * Download the rendered video file
+ */
+renderRouter.get('/render/:jobId/download', (req: Request, res: Response) => {
+  const { jobId } = req.params;
 
-  setTimeout(() => {
-    jobEventEmitter.emitProgress(jobId, {
-      step: 'segment',
-      index: 0,
-      total: job.meta.tracks.length,
+  // Check if job exists
+  const job = jobStore.get(jobId);
+  if (!job) {
+    return res.status(404).json({ error: `Job ${jobId} not found` });
+  }
+
+  // Check if job is complete
+  if (job.status !== 'done') {
+    return res.status(400).json({ 
+      error: `Job ${jobId} is not complete yet (status: ${job.status})` 
     });
-  }, 2000);
+  }
 
-  setTimeout(() => {
-    jobEventEmitter.emitLog(jobId, `Simulating processing of ${job.meta.tracks.length} tracks`);
-  }, 3000);
-
-  // Note: In T5, the actual render process will emit real events
-  // For now, this heartbeat demonstrates the SSE connection works
+  // Serve the output file
+  const outputPath = join(job.tempDir, 'output.mp4');
+  
+  res.download(outputPath, 'output.mp4', (err) => {
+    if (err) {
+      console.error(`Error downloading file for job ${jobId}:`, err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to download file' });
+      }
+    } else {
+      console.log(`File downloaded successfully for job ${jobId}`);
+    }
+  });
 });
 
 /**

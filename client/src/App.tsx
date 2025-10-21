@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import TrackList from './components/TrackList';
 import PresetSelect from './components/PresetSelect';
 import RenderPanel from './components/RenderPanel';
 import { PRESETS } from './types/index';
 import type { Track, Preset } from './types/index';
+import { submitRenderJob, connectToJobProgress, getDownloadUrl } from './api/render';
 import './App.css';
 
 function App() {
@@ -14,6 +15,11 @@ function App() {
 
   const [selectedPreset, setSelectedPreset] = useState<Preset>(PRESETS[0]);
   const [isRendering, setIsRendering] = useState(false);
+  const [logs, setLogs] = useState<string[]>([]);
+  const [progress, setProgress] = useState<{ step: string; index?: number; total?: number } | null>(null);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
   const handleAddTrack = () => {
     if (tracks.length < 10) {
@@ -43,14 +49,71 @@ function App() {
     setTracks(newTracks);
   };
 
-  const handleRender = () => {
-    // Placeholder for now - will wire to backend in T7
-    console.log('Rendering with:', { tracks, preset: selectedPreset });
+  const handleRender = async () => {
+    // Reset state
+    setLogs([]);
+    setProgress(null);
+    setDownloadUrl(null);
+    setError(null);
     setIsRendering(true);
-    setTimeout(() => {
+    
+    // Close any existing SSE connection
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    
+    try {
+      // Build metadata
+      const meta = {
+        tracks: tracks.map(t => ({ title: t.title || undefined })),
+        width: selectedPreset.width,
+        height: selectedPreset.height,
+        fps: selectedPreset.fps,
+      };
+      
+      // Collect files
+      const audioFiles = tracks.map(t => t.audioFile!);
+      const imageFiles = tracks.map(t => t.imageFile!);
+      
+      // Submit job
+      const { jobId } = await submitRenderJob(meta, audioFiles, imageFiles);
+      setLogs(prev => [...prev, `Job submitted: ${jobId}`]);
+      
+      // Connect to progress stream
+      eventSourceRef.current = connectToJobProgress(jobId, {
+        onLog: (message) => {
+          setLogs(prev => [...prev, message]);
+        },
+        onProgress: (data) => {
+          setProgress(data);
+        },
+        onDone: (url) => {
+          setDownloadUrl(getDownloadUrl(jobId));
+          setIsRendering(false);
+          setProgress(null);
+          if (eventSourceRef.current) {
+            eventSourceRef.current.close();
+            eventSourceRef.current = null;
+          }
+        },
+        onError: (message) => {
+          setError(message);
+          setIsRendering(false);
+          setProgress(null);
+          if (eventSourceRef.current) {
+            eventSourceRef.current.close();
+            eventSourceRef.current = null;
+          }
+        },
+      });
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMessage);
       setIsRendering(false);
-      alert('Render complete! (Demo mode - backend not connected yet)');
-    }, 2000);
+      setLogs(prev => [...prev, `Error: ${errorMessage}`]);
+    }
   };
 
   return (
@@ -81,6 +144,10 @@ function App() {
           preset={selectedPreset}
           onRender={handleRender}
           isRendering={isRendering}
+          logs={logs}
+          progress={progress}
+          downloadUrl={downloadUrl}
+          error={error}
         />
       </main>
     </div>
